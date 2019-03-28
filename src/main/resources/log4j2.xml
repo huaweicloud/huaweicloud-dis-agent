@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout charset="GBK" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSZ} %X{hostname} [%-5p] (%t) %c %m%n"/>
+        </Console>
+
+        <RollingFile name="RollingFile" fileName="logs/dis-agent.log" filePattern="logs/dis-agent-%d{yyyy-MM-dd}-%i.log">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSSZ} %X{hostname} [%-5p] (%t) %c %m%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <DefaultRolloverStrategy fileIndex="max" max="5">
+                <Delete basePath="logs/" maxDepth="1">
+                    <IfFileName glob="*.log"/>
+                    <IfLastModified age="10d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+
+    </Appenders>
+    <Loggers>
+        <Root level="INFO">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFile"/>
+        </Root>
+        <logger name="org.apache.http" level="INFO"/>
+        <logger name="com.obs.services.internal.RestStorageService" level="WARN"/>
+        <logger name="com.obs.services.ObsClient" level="WARN"/>
+    </Loggers>
+</Configuration>
