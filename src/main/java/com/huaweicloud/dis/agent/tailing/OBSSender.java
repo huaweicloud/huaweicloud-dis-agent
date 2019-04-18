@@ -139,7 +139,15 @@ public class OBSSender extends AbstractSender<SmallFileRecord>
                 record.setData(ByteBuffer.wrap((flow.isUploadFullPath() ? filePath : fileName).getBytes()));
                 record.setPartitionKey(data.partitionKey());
                 putRecordsRequestEntryList.add(record);
-                request.setStreamName(getDestination());
+                if(StringUtils.isBlank(flow.getStreamId()))
+                {
+                    request.setStreamName(getDestination());
+                }
+                else
+                {
+                    request.setStreamName(null);
+                    request.setStreamId(flow.getStreamId());
+                }
                 request.setRecords(putRecordsRequestEntryList);
                 
                 requestRecords.add(request);

@@ -96,7 +96,15 @@ public class DISSender extends AbstractSender<DISRecord>
                 requestRecords.add(record);
             }
             PutRecordsRequest request = new PutRecordsRequest();
-            request.setStreamName(getDestination());
+            if(StringUtils.isNullOrEmpty(flow.getStreamId()))
+            {
+                request.setStreamName(getDestination());
+            }
+            else
+            {
+                request.setStreamName(null);
+                request.setStreamId(flow.getStreamId());
+            }
             request.setRecords(requestRecords);
             PutRecordsResult result;
             Stopwatch timer = Stopwatch.createStarted();

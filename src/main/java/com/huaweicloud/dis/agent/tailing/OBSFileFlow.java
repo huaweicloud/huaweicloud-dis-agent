@@ -1,24 +1,23 @@
 package com.huaweicloud.dis.agent.tailing;
 
-import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-
 import com.google.common.collect.Range;
 import com.huaweicloud.dis.agent.AgentContext;
 import com.huaweicloud.dis.agent.Constants;
 import com.huaweicloud.dis.agent.config.Configuration;
 import com.huaweicloud.dis.agent.metrics.Metrics;
 import com.huaweicloud.dis.agent.tailing.checkpoints.FileCheckpointStore;
-import com.huaweicloud.dis.core.util.StringUtils;
 import com.obs.services.ObsClient;
 import com.obs.services.ObsConfiguration;
 import com.obs.services.internal.utils.AccessLoggerUtils;
-
 import lombok.Getter;
 import lombok.ToString;
+import org.apache.commons.lang3.StringUtils;
+
+import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 @ToString(callSuper = true)
 public class OBSFileFlow extends FileFlow<SmallFileRecord>
@@ -94,9 +93,9 @@ public class OBSFileFlow extends FileFlow<SmallFileRecord>
         super(context, config);
         destination = readString(OBSConstants.DESTINATION_KEY);
         id = "obs-file:" + destination + ":" + sourceFile.toString();
-        
+
         String dir = readString(DUMP_DIRECTORY, "");
-        if (StringUtils.isNullOrEmpty(dir))
+        if (StringUtils.isBlank(dir))
         {
             dumpDirectory = "";
         }
@@ -108,32 +107,29 @@ public class OBSFileFlow extends FileFlow<SmallFileRecord>
             dumpDirectory = dir;
         }
 
-        reservedSubDirectory = readBoolean(RESERVED_SUB_DIRECTORY,false);
-        
+        reservedSubDirectory = readBoolean(RESERVED_SUB_DIRECTORY, false);
+
         obsBucket = readString(OBS_BUCKET);
-        
+
         obsEndpoint = readString(OBS_ENDPOINT);
-        
+
         disableDnsBucket = readBoolean(DISABLE_DNS_BUCKET, false);
-        
+
         // default 10MB
         uploadProgressInterval = readInteger(UPLOAD_PROGRESS_INTERVAL, 10 * 1024);
-        
+
         uploadFullPath = readBoolean(UPLOAD_FULL_PATH, false);
-        
+
         getOBSClient();
         if (!obsClient.headBucket(obsBucket))
         {
             throw new IllegalArgumentException("bucket [" + obsBucket + "] is not exist.");
         }
-        
-        try
+
+        if (StringUtils.isEmpty(getStreamId()))
         {
+            // 判断通道是否存在
             describeStream(destination);
-        }
-        catch (Exception e)
-        {
-            throw new IllegalArgumentException("describe stream [" + destination + "] error: " + e.getMessage());
         }
     }
     

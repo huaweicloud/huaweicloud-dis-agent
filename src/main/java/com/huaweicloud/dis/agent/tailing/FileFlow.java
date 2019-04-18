@@ -135,7 +135,17 @@ public abstract class FileFlow<R extends IRecord> extends Configuration
      * 启用
      */
     public static final String ENABLE = "enable";
-    
+
+    /**
+     * 通道ID
+     */
+    public static final String STREAM_ID = "streamId";
+
+    /**
+     * 通道类型(ADVANCED/COMMON)
+     */
+    public static final String STREAM_TYPE = "streamType";
+
     @Getter
     protected final AgentContext agentContext;
     
@@ -228,13 +238,16 @@ public abstract class FileFlow<R extends IRecord> extends Configuration
     
     @Getter
     protected final boolean enable;
-    
+
     /**
      * 在日志输出DIS响应体结果开关
      */
     @Getter
     protected RESULT_LOG_LEVEL resultLogLevel;
-    
+
+    @Getter
+    protected final String streamId;
+
     protected FileFlow(AgentContext context, Configuration config)
     {
         super(config);
@@ -336,6 +349,8 @@ public abstract class FileFlow<R extends IRecord> extends Configuration
         sourceFile = buildSourceFile();
         
         partitionKeyOption = readString(Constants.PARTITION_KEY, PartitionKeyOption.RANDOM_INT.name());
+
+        streamId = readString(STREAM_ID, "");
     }
     
     public synchronized FileTailer<R> createTailer(FileCheckpointStore checkpoints)

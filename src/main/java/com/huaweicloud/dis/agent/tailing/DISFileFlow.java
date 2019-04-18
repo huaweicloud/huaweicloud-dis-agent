@@ -1,14 +1,5 @@
 package com.huaweicloud.dis.agent.tailing;
 
-import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.collect.Range;
 import com.huaweicloud.dis.agent.AgentContext;
 import com.huaweicloud.dis.agent.Constants;
@@ -19,9 +10,17 @@ import com.huaweicloud.dis.agent.processing.interfaces.IDataConverter;
 import com.huaweicloud.dis.agent.processing.utils.ProcessingUtilsFactory;
 import com.huaweicloud.dis.agent.tailing.checkpoints.FileCheckpointStore;
 import com.huaweicloud.dis.iface.data.request.StreamType;
-
 import lombok.Getter;
 import lombok.ToString;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 @ToString(callSuper = true)
 public class DISFileFlow extends FileFlow<DISRecord>
@@ -45,7 +44,7 @@ public class DISFileFlow extends FileFlow<DISRecord>
     
     @Getter
     protected final String id;
-    
+
     @Getter
     protected final String destination;
     
@@ -71,8 +70,25 @@ public class DISFileFlow extends FileFlow<DISRecord>
                 partitionKeyOptionList.add(option);
             }
         }
-        streamType = describeStream(destination).getStreamType();
-        LOGGER.info("DISStream {} type is {}", destination, streamType);
+
+        if (StringUtils.isEmpty(getStreamId()))
+        {
+            streamType = describeStream(destination).getStreamType();
+        }
+        else
+        {
+            // 如果配置streamId，则不需describeStream，从配置项读取
+            streamType = config.readString(STREAM_TYPE, "COMMON");
+            try
+            {
+                StreamType.valueOf(streamType);
+            }
+            catch (Exception e)
+            {
+                throw new IllegalArgumentException("streamType should be " + Arrays.toString(StreamType.values()));
+            }
+        }
+
         // 高级通道单条记录限制5MB;其他限制1MB
         if (StreamType.ADVANCED.getType().equals(streamType))
         {
@@ -82,6 +98,7 @@ public class DISFileFlow extends FileFlow<DISRecord>
         {
             maxRecordSizeBytes = Constants.ONE_MB;
         }
+        LOGGER.info("DISStream {} type is {}", destination, streamType);
     }
     
     @Override
