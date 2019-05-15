@@ -1,18 +1,5 @@
 package com.huaweicloud.dis.agent.tailing;
 
-import java.io.File;
-import java.nio.ByteBuffer;
-import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.SystemUtils;
-
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.huaweicloud.dis.agent.AgentContext;
@@ -25,8 +12,19 @@ import com.huaweicloud.dis.iface.data.response.PutRecordsResult;
 import com.obs.services.model.ProgressListener;
 import com.obs.services.model.ProgressStatus;
 import com.obs.services.model.PutObjectRequest;
-
 import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
+
+import java.io.File;
+import java.nio.ByteBuffer;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class OBSSender extends AbstractSender<SmallFileRecord>
 {
@@ -159,19 +157,20 @@ public class OBSSender extends AbstractSender<SmallFileRecord>
                 PutRecordsResult putRecordsResult;
                 try
                 {
-                    logger.info("Start to put file [{} ({})] to bucket [{}] and dis [{}]",
-                        filePath,
-                        data.file().getId().toString(),
-                        flow.getObsBucket(),
-                        getDestination());
+                    logger.info("Start to put file [{}]({}) to obs [{}/{}] and dis [{}]",
+                            filePath,
+                            data.file().getId().toString(),
+                            flow.getObsBucket(),
+                            flow.getDumpDirectory() + obsFile,
+                            getDestination());
                     metrics.addCount(RECORDS_ATTEMPTED_METRIC, 1);
-                    
+
                     // upload to obs
                     flow.getOBSClient().putObject(putObjectRequest);
                     logger.debug("put file [{} ({})] to bucket [{}] is ok.",
-                        filePath,
-                        data.file().getId().toString(),
-                        flow.getObsBucket());
+                            filePath,
+                            data.file().getId().toString(),
+                            flow.getObsBucket());
                     // upload to dis
                     if (StringUtils.isNotBlank(getDestination()))
                     {
@@ -179,9 +178,9 @@ public class OBSSender extends AbstractSender<SmallFileRecord>
                         if (putRecordsResult.getFailedRecordCount().get() == 0)
                         {
                             logger.debug("put file [{} ({})] to dis [{}] is ok.",
-                                filePath,
-                                data.file().getId().toString(),
-                                getDestination());
+                                    filePath,
+                                    data.file().getId().toString(),
+                                    getDestination());
                             sentRecords.add(i);
                             totalBytesSent += data.file().getSize();
                         }
@@ -209,21 +208,24 @@ public class OBSSender extends AbstractSender<SmallFileRecord>
                     if (logLevel != FileFlow.RESULT_LOG_LEVEL.OFF)
                     {
                         String sb = new StringBuilder().append(errorMsg == null ? "Success" : "Failed")
-                            .append(" to put file [")
-                            .append(filePath)
-                            .append(" (")
-                            .append(data.file().getId().toString())
-                            .append(")")
-                            .append("] to obs[")
-                            .append(flow.getObsBucket())
-                            .append("] and dis[")
-                            .append(getDestination())
-                            .append("] spend ")
-                            .append(elapsed)
-                            .append("ms")
-                            .append(errorMsg == null ? "." : ", errorMsg [" + errorMsg + "].")
-                            .toString();
-                        
+                                .append(" to put file [")
+                                .append(filePath)
+                                .append("](")
+                                .append(data.file().getId().toString())
+                                .append(")")
+                                .append(" to obs [")
+                                .append(flow.getObsBucket())
+                                .append("/")
+                                .append(flow.getDumpDirectory())
+                                .append(obsFile)
+                                .append("] and dis [")
+                                .append(getDestination())
+                                .append("], spend ")
+                                .append(elapsed)
+                                .append("ms")
+                                .append(errorMsg == null ? "." : ", errorMsg [" + errorMsg + "].")
+                                .toString();
+
                         switch (logLevel)
                         {
                             case DEBUG:

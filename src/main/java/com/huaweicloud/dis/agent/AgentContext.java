@@ -165,13 +165,14 @@ public class AgentContext extends AgentConfiguration implements IMetricsContext
         Preconditions.checkArgument(configMap.get(DISConfig.PROPERTY_AK) != null, "ak should not be null");
         Preconditions.checkArgument(configMap.get(DISConfig.PROPERTY_SK) != null, "sk should not be null");
         
-        String ak = tryGetDecryptValue(DISConfig.PROPERTY_AK);
-        String sk = tryGetDecryptValue(DISConfig.PROPERTY_SK);
+        String ak = tryGetDecryptValue(DISConfig.PROPERTY_AK, false);
+        String sk = tryGetDecryptValue(DISConfig.PROPERTY_SK, false);
+        String dataPassword = tryGetDecryptValue(DISConfig.PROPERTY_DATA_PASSWORD, false);
 
-        return new DISCredentials(ak, sk, (String) configMap.get(DISConfig.PROPERTY_SECURITY_TOKEN), (String) configMap.get(DISConfig.PROPERTY_DATA_PASSWORD));
+        return new DISCredentials(ak, sk, (String) configMap.get(DISConfig.PROPERTY_SECURITY_TOKEN), dataPassword);
     }
     
-    protected String tryGetDecryptValue(String key)
+    protected String tryGetDecryptValue(String key, boolean ignoreException)
     {
         Map<String, Object> configMap = getConfigMap();
 
@@ -181,10 +182,10 @@ public class AgentContext extends AgentConfiguration implements IMetricsContext
             return null;
         }
         String value = String.valueOf(v);
-        String dataPassword = null;
-        if (configMap.get(DISConfig.PROPERTY_DATA_PASSWORD) != null)
+        String encryptKey = null;
+        if (configMap.get(Constants.CONFIG_ENCRYPT_KEY) != null)
         {
-            dataPassword = String.valueOf(configMap.get(DISConfig.PROPERTY_DATA_PASSWORD));
+            encryptKey = String.valueOf(configMap.get(Constants.CONFIG_ENCRYPT_KEY));
         }
         // 168 is the Minimum length of encrypt value.
         if (value.length() >= 168)
@@ -192,12 +193,19 @@ public class AgentContext extends AgentConfiguration implements IMetricsContext
             try
             {
                 LOGGER.info("Try to decrypt [{}].", key);
-                return EncryptTool.decrypt(value, dataPassword);
+                return EncryptTool.decrypt(value, encryptKey);
             }
             catch (Exception e)
             {
-                LOGGER.error("Failed to decrypt [{}].", key);
-                throw e;
+                if (!ignoreException)
+                {
+                    LOGGER.error("Failed to decrypt [{}].", key);
+                    throw e;
+                }
+                else
+                {
+                    LOGGER.warn("Try to decrypt but not success. key=[{}].", key);
+                }
             }
         }
         return value;
@@ -210,7 +218,14 @@ public class AgentContext extends AgentConfiguration implements IMetricsContext
         {
             if (next.getValue() != null)
             {
-                disConfig.put(next.getKey(), next.getValue().toString());
+                String value = next.getValue().toString();
+                // 对包含有密码等字样的配置解密
+                String lowerKey = next.getKey().toLowerCase();
+                if (lowerKey.contains("pwd") || lowerKey.contains("pass"))
+                {
+                    value = tryGetDecryptValue(next.getKey(), true);
+                }
+                disConfig.put(next.getKey(), value);
             }
         }
         
@@ -248,6 +263,7 @@ public class AgentContext extends AgentConfiguration implements IMetricsContext
             getConfigMap().get(CONFIG_BODY_SERIALIZE_TYPE_KEY),
             false);
         updataDisConfigParam(disConfig, DISConfig.PROPERTY_SECURITY_TOKEN, credentials.getSecurityToken(), false);
+
         return disConfig;
     }
     

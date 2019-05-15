@@ -1,48 +1,40 @@
 ---
 # cloud region id
 region: cn-north-1
-# user ak (get from 'My Credential')
-ak: USER_AK
-# user sk (get from 'My Credential')
-sk: USER_SK
-# user project id (get from 'My Credential')
-projectId: USER_PROJECTID
+# you ak (get from 'My Credential')
+ak: YOU_AK
+# you sk (get from 'My Credential')
+sk: YOU_SK
+# you project id (get from 'My Credential')
+projectId: YOU_PROJECTID
 # the dis endpoint
 endpoint: https://dis.cn-north-1.myhuaweicloud.com
 # config each flow to monitor file.
 flows:
   ### DIS Stream
-  - DISStream: USER_DIS_STREAM_1
+  - DISStream: YOU_DIS_STREAM_1
     ## only support specified directory, filename can use * to match some files. eg. * means match all file, test*.log means match test1.log or test-12.log and so on.
     filePattern: /tmp/*.log
     ## from where to start: 'START_OF_FILE' or 'END_OF_FILE'
     initialPosition: START_OF_FILE
     ## upload max interval(ms)
     maxBufferAgeMillis: 5000
-  
-  ### Custom File Stream (file maximum size is 128MB)
-  #- CustomFileStream: USER_CUSTOM_FILE_STREAM_2
-  #  ## only support specified directory, filename can use * to match some files. eg. * means match all file, test*.log means match test1.log or test-12.log and so on.
+
+  ### If there are other monitor files, continue to follow the above configuration
+  ### another dis stream monitor config, uncomment # if you want to use this feature
+  #- DISStream: YOU_DIS_STREAM_2
   #  filePattern: /opt/*.log
-  #  ## from where to start: 'START_OF_FILE' or 'END_OF_FILE'
   #  initialPosition: START_OF_FILE
-  #  ## when the file size and lastModifyTime does not change within 'maxFileCheckingMillis', start to upload the file
-  #  maxFileCheckingMillis: 5000
-    
+  #  maxBufferAgeMillis: 5000
+
   ### OBS Stream: Upload the matching file to OBS and send the file name to DIS, uncomment # if you want to use this feature
-  #- OBSStream: USER_DIS_STREAM_3
+  #- OBSStream: YOU_DIS_STREAM_3
   #  filePattern: /opt/*.log
   #  initialPosition: START_OF_FILE
   #  ## bucket name
-  #  OBSBucket: USER_OBS_BUCKET_NAME
+  #  OBSBucket: YOU_OBS_BUCKET_NAME
   #  ## OBS endpoint
   #  OBSEndpoint: https://obs.cn-north-1.myhuaweicloud.com
   #  ## the directory(using / separated) where the files are stored under the bucket, automatically created if it does not exist
   #  dumpDirectory: example/dis/
 
-  ### If there are other monitor files, continue to follow the above configuration
-  ### another dis stream monitor config, uncomment # if you want to use this feature
-  #- DISStream: USER_DIS_STREAM_2
-  #  filePattern: /opt/*.log
-  #  initialPosition: START_OF_FILE
-  #  maxBufferAgeMillis: 5000
