@@ -1,17 +1,5 @@
 package com.huaweicloud.dis.agent;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -22,12 +10,22 @@ import com.huaweicloud.dis.agent.config.ConfigurationException;
 import com.huaweicloud.dis.agent.metrics.IMetricsContext;
 import com.huaweicloud.dis.agent.metrics.IMetricsScope;
 import com.huaweicloud.dis.agent.metrics.Metrics;
-import com.huaweicloud.dis.agent.processing.utils.WCCTool;
+import com.huaweicloud.dis.agent.processing.utils.EncryptTool;
 import com.huaweicloud.dis.agent.tailing.FileFlow;
 import com.huaweicloud.dis.agent.tailing.FileFlowFactory;
 import com.huaweicloud.dis.core.DISCredentials;
-
 import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Global context for the agent, including configuration, caches and transient state.
@@ -163,37 +161,51 @@ public class AgentContext extends AgentConfiguration implements IMetricsContext
     
     protected DISCredentials initCredentials()
     {
-        Preconditions.checkArgument(getConfigMap().get(DISConfig.PROPERTY_AK) != null, "ak should not be null");
-        Preconditions.checkArgument(getConfigMap().get(DISConfig.PROPERTY_SK) != null, "sk should not be null");
+        Map<String, Object> configMap = getConfigMap();
+        Preconditions.checkArgument(configMap.get(DISConfig.PROPERTY_AK) != null, "ak should not be null");
+        Preconditions.checkArgument(configMap.get(DISConfig.PROPERTY_SK) != null, "sk should not be null");
         
-        String ak = tryGetDecryptValue(DISConfig.PROPERTY_AK);
-        String sk = tryGetDecryptValue(DISConfig.PROPERTY_SK);
-        String securityToken = tryGetDecryptValue(DISConfig.PROPERTY_SECURITY_TOKEN);
-        String dataPassword = tryGetDecryptValue(DISConfig.PROPERTY_DATA_PASSWORD);
-        
-        return new DISCredentials(ak, sk, securityToken, dataPassword);
+        String ak = tryGetDecryptValue(DISConfig.PROPERTY_AK, false);
+        String sk = tryGetDecryptValue(DISConfig.PROPERTY_SK, false);
+        String dataPassword = tryGetDecryptValue(DISConfig.PROPERTY_DATA_PASSWORD, false);
+
+        return new DISCredentials(ak, sk, (String) configMap.get(DISConfig.PROPERTY_SECURITY_TOKEN), dataPassword);
     }
     
-    protected String tryGetDecryptValue(String key)
+    protected String tryGetDecryptValue(String key, boolean ignoreException)
     {
-        Object v = getConfigMap().get(key);
+        Map<String, Object> configMap = getConfigMap();
+
+        Object v = configMap.get(key);
         if (v == null)
         {
             return null;
         }
         String value = String.valueOf(v);
-        // value is too long, and start with "d2NjX", it maybe encrypted.
-        if (value.length() > 200 && value.startsWith("d2NjX"))
+        String encryptKey = null;
+        if (configMap.get(Constants.CONFIG_ENCRYPT_KEY) != null)
+        {
+            encryptKey = String.valueOf(configMap.get(Constants.CONFIG_ENCRYPT_KEY));
+        }
+        // 168 is the Minimum length of encrypt value.
+        if (value.length() >= 168)
         {
             try
             {
                 LOGGER.info("Try to decrypt [{}].", key);
-                return WCCTool.getInstance().decrypt(value);
+                return EncryptTool.decrypt(value, encryptKey);
             }
             catch (Exception e)
             {
-                LOGGER.error("Failed to decrypt [{}].", key);
-                throw e;
+                if (!ignoreException)
+                {
+                    LOGGER.error("Failed to decrypt [{}].", key);
+                    throw e;
+                }
+                else
+                {
+                    LOGGER.warn("Try to decrypt but not success. key=[{}].", key);
+                }
             }
         }
         return value;
@@ -206,7 +218,14 @@ public class AgentContext extends AgentConfiguration implements IMetricsContext
         {
             if (next.getValue() != null)
             {
-                disConfig.put(next.getKey(), next.getValue().toString());
+                String value = next.getValue().toString();
+                // 对包含有密码等字样的配置解密
+                String lowerKey = next.getKey().toLowerCase();
+                if (lowerKey.contains("pwd") || lowerKey.contains("pass"))
+                {
+                    value = tryGetDecryptValue(next.getKey(), true);
+                }
+                disConfig.put(next.getKey(), value);
             }
         }
         
@@ -244,6 +263,7 @@ public class AgentContext extends AgentConfiguration implements IMetricsContext
             getConfigMap().get(CONFIG_BODY_SERIALIZE_TYPE_KEY),
             false);
         updataDisConfigParam(disConfig, DISConfig.PROPERTY_SECURITY_TOKEN, credentials.getSecurityToken(), false);
+
         return disConfig;
     }
     

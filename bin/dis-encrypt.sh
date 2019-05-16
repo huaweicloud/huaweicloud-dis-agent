@@ -1,5 +1,7 @@
 #!/bin/bash -l
 
+KEY=$1
+
 read -s -t 20 -p "Please enter password:" PASS
 
 if [ $? -ne 0 ]; then
@@ -18,7 +20,9 @@ fi
 pdir=$(cd `dirname $0`;cd ../;pwd)
 cd ${pdir}
 
-result=`java -cp "lib/*" com.huaweicloud.dis.agent.processing.utils.WCCTool "${PASS}"`
+echo "Please wait..."
+
+result=`java -Dlog4j.configurationFile=conf/log4j2.xml -cp "lib/*" com.huaweicloud.dis.agent.processing.utils.EncryptTool "${PASS}" ${KEY}`
 
 if [ $? -ne 0 ]; then
     echo "Failed to encrypt."

@@ -1,18 +1,5 @@
 package com.huaweicloud.dis.agent.tailing;
 
-import java.io.File;
-import java.net.UnknownHostException;
-import java.nio.channels.ClosedByInterruptException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.apache.commons.io.FileUtils;
-import org.apache.http.HttpStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.huaweicloud.dis.agent.AgentContext;
 import com.huaweicloud.dis.agent.Constants;
@@ -20,12 +7,24 @@ import com.huaweicloud.dis.agent.IHeartbeatProvider;
 import com.huaweicloud.dis.agent.tailing.checkpoints.Checkpointer;
 import com.huaweicloud.dis.agent.tailing.checkpoints.FileCheckpointStore;
 import com.huaweicloud.dis.core.util.StringUtils;
+import com.huaweicloud.dis.exception.DISStreamNotExistsException;
 import com.huaweicloud.dis.http.exception.HttpClientErrorException;
 import com.huaweicloud.dis.http.exception.RestClientResponseException;
 import com.huaweicloud.dis.http.exception.UnknownHttpStatusCodeException;
 import com.obs.services.exception.ObsException;
-
 import lombok.Getter;
+import org.apache.commons.io.FileUtils;
+import org.apache.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.net.UnknownHostException;
+import java.nio.channels.ClosedByInterruptException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Core functionality of a publisher that buffers records into an {@link PublishingQueue} and sends them via an
@@ -287,6 +286,27 @@ class SimplePublisher<R extends IRecord> implements IHeartbeatProvider
                 buffer,
                 t.getClass().getName(),
                 t.getMessage());
+
+            if (t instanceof DISStreamNotExistsException)
+            {
+                if (!StringUtils.isNullOrEmpty(flow.getStreamId()))
+                {
+                    logger.error("Stream not found, please check streamId {}", flow.getStreamId());
+                }
+                else
+                {
+                    logger.error("Stream not found, please check streamName {}", flow.getDestination());
+                }
+                try
+                {
+                    Thread.sleep(5000);
+                }
+                catch (InterruptedException e)
+                {
+                    logger.error(e.getMessage(), e);
+                }
+            }
+
             return queueBufferForRetry(buffer);
         }
         

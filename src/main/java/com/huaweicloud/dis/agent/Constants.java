@@ -29,7 +29,11 @@ public class Constants
     public static final String PARTITION_KEY_SPLIT = ",";
 
     public static final int ONE_MB = 1024 * 1024;
-    
+
+    /**
+     * 用于加密(如sk/data.password)的key值
+     */
+    public static final String CONFIG_ENCRYPT_KEY = "encrypt.key";
     /**
      * AK/SK认证失败返回码
      */

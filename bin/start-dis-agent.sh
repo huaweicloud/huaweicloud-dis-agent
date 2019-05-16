@@ -41,7 +41,7 @@ rm -f "${LIB_DIR}/sqlite*-libsqlitejdbc.so"
 CLASSPATH="$LIB_DIR":$(find "$LIB_DIR" -type f -name \*.jar | paste -s -d : -):"$CLASSPATH":"$CONFIG_DIR"
 
 OOME_ARGS="-XX:OnOutOfMemoryError=\"/bin/kill -9 %p\""
-JVM_ARGS="-Xms${JAVA_START_HEAP} -Xmx${JAVA_MAX_HEAP} -Djava.io.tmpdir=${CONFIG_DIR} -Dlog4j.configurationFile=conf/log4j2.xml $JVM_ARGS"
+JVM_ARGS="-Xms${JAVA_START_HEAP} -Xmx${JAVA_MAX_HEAP} -Djava.io.tmpdir=${LIB_DIR} -Dlog4j.configurationFile=conf/log4j2.xml $JVM_ARGS"
 
 MAIN_CLASS_ARGS=$@
 if [ "${MAIN_CLASS_ARGS}" == "" ]; then
