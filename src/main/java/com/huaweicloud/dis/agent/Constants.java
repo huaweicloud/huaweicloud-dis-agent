@@ -55,9 +55,17 @@ public class Constants
     public static final String DELETE_POLICY_NEVER = "never";
     
     /**
-     * 文件检测最长等待时间
+     * 文件检测最长等待时间，用于文件上传模式，超过此时间之后，上传整个文件
+     * 当{@link com.huaweicloud.dis.agent.tailing.FileFlow#IS_FILE_APPENDABLE}为false时生效
      */
     public static final long DEFAULT_MAX_FILE_CHECKING_MILLIS = 5_000L;
+
+    /**
+     * 无分隔符检测最长等待时间，用于行数上传模式，超过此时间之后，即便没有分隔符，也认为写完一行
+     * 当{@link com.huaweicloud.dis.agent.tailing.FileFlow#IS_FILE_APPENDABLE}为false时生效
+     * 当{@link com.huaweicloud.dis.agent.tailing.FileFlow#IS_MISS_LAST_RECORD_DELIMITER }为true时，会上传此记录，否则不上传一直等到分隔符写入。
+     */
+    public static final long DEFAULT_MISS_LAST_RECORD_DELIMITER_CHECKING_MILLIS = 500L;
 
     public static final String PARTITION_KEY = "partitionKeyOption";
 

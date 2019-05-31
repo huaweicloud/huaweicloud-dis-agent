@@ -16,9 +16,9 @@ public class DISParser extends AbstractParser<DISRecord>
     }
     
     @Override
-    protected synchronized DISRecord buildRecord(TrackedFile recordFile, ByteBuffer data, long offset)
+    protected synchronized DISRecord buildRecord(TrackedFile recordFile, ByteBuffer data, long offset, int length)
     {
-        return new DISRecord(recordFile, offset, data);
+        return new DISRecord(recordFile, offset, length, data);
     }
     
     @Override

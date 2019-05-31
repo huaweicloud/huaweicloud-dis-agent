@@ -26,7 +26,7 @@ public class SmallFileParser extends AbstractParser<SmallFileRecord>
     }
     
     @Override
-    protected synchronized SmallFileRecord buildRecord(TrackedFile recordFile, ByteBuffer data, long offset)
+    protected synchronized SmallFileRecord buildRecord(TrackedFile recordFile, ByteBuffer data, long offset, int length)
     {
         return new SmallFileRecord(recordFile);
     }

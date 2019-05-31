@@ -16,8 +16,6 @@ public class AgentConfiguration extends Configuration
     
     static final int DEFAULT_SENDING_THREADS_MAX_QUEUE_SIZE = 100;
     
-    static final String DEFAULT_CHECKPOINTS_FILE = "conf" + File.separator + "since.db";
-    
     static final int DEFAULT_MAX_SENDING_THREADS_PER_CORE = 12;
     
     static final int DEFAULT_CW_QUEUE_SIZE = 10_000;
@@ -178,12 +176,12 @@ public class AgentConfiguration extends Configuration
     {
         return readBoolean("useHttpGzip", false);
     }
-    
+
     public Path checkpointFile()
     {
-        return this.readPath("checkpointFile", Paths.get(DEFAULT_CHECKPOINTS_FILE));
+        return this.readPath("checkpointFile", null);
     }
-    
+
     public int checkpointTimeToLiveDays()
     {
         return this.readInteger("checkpointTimeToLiveDays", DEFAULT_CHECKPOINT_TTL_DAYS);

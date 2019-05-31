@@ -2,6 +2,7 @@ package com.huaweicloud.dis.agent.config;
 
 import java.io.File;
 
+import com.huaweicloud.dis.agent.AgentContext;
 import org.apache.commons.lang3.ArrayUtils;
 
 import com.beust.jcommander.*;
@@ -14,16 +15,25 @@ import lombok.Getter;
 public class AgentOptions
 {
     
-    private static final String DEFAULT_CONFIG_FILE = "/etc/dis-agent/agent.json";
-    
+    private static final String DEFAULT_CONFIG_FILE = "/etc/dis-agent/agent.yml";
+
     private static final String[] VALID_LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR"};
-    
-    @Parameter(names = {"--configuration",
-        "-c"}, description = "Path to the configuration file for the agent.", validateWith = FileReadableValidator.class)
+
+    /**
+     * 配置文件绝对路径
+     */
+    @Parameter(names = {"-c", "--configuration"}, description = "Path to the configuration file for the agent.", validateWith = FileReadableValidator.class)
     @Getter
     String configFile = DEFAULT_CONFIG_FILE;
-    
-    @Parameter(names = {"--log-file", "-l"}, description = "Path to the agent's log file.")
+
+    /**
+     * 进程标识(唯一)
+     */
+    @Parameter(names = {"-n", "--name"}, description = "Agent unique name.")
+    @Getter
+    String agentName = AgentContext.DEFAULT_AGENT_NAME;
+
+    @Parameter(names = {"--log-name", "-l"}, description = "Agent's log filename.")
     @Getter
     String logFile = null;
     
@@ -47,7 +57,7 @@ public class AgentOptions
         catch (ParameterException e)
         {
             System.err.println(e.getMessage());
-            jc.usage();
+            // jc.usage();
             System.exit(1);
         }
         if (Boolean.TRUE.equals(opts.help))

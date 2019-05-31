@@ -1,5 +1,15 @@
 package com.huaweicloud.dis.agent.tailing;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.huaweicloud.dis.agent.AgentContext;
+import com.huaweicloud.dis.agent.tailing.checkpoints.FileCheckpointStore;
+import lombok.Getter;
+import org.apache.commons.lang3.SystemUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.concurrent.NotThreadSafe;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -7,19 +17,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-
-import javax.annotation.concurrent.NotThreadSafe;
-
-import org.apache.commons.lang3.SystemUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.huaweicloud.dis.agent.AgentContext;
-import com.huaweicloud.dis.agent.tailing.checkpoints.FileCheckpointStore;
-
-import lombok.Getter;
 
 /**
  * Component responsible for tracking a collection source files specified by a {@link FileFlow}. It maintains an
@@ -385,7 +382,10 @@ public class SourceFileTracker
                 newTrackFile.setSameAsCurrentOpenFile(true);
                 sameAsCurrentOpenFile = newTrackFile;
             }
-            
+
+            // 继承缺失分隔符的时间点(用于等待一段时间上传没有分隔符结尾的记录)
+            newTrackFile.setMissLastRecordDelimiterTime(oldTrackFile.getMissLastRecordDelimiterTime());
+
             // 两个文件标识头不相等 且 原文件标识头长度>0 且 新文件标识头长度>=-1 时，表示文件iNode被重复使用
             if (!newTrackFile.isStartingSameAs(oldTrackFile) && newTrackFile.getHeaderBytesLength() >= -1
                 && oldTrackFile.getHeaderBytesLength() > 0)
@@ -428,7 +428,7 @@ public class SourceFileTracker
             }
             
             // 旧文件还没有解析完成 或 文件新增内容 (增加文件ID判断是因为文件频繁重命名时，可能导致trackFile前后不一致)
-            if (oldTrackFile.getCurrentOffset() < oldTrackFile.getCurrentSize()
+            if (oldTrackFile.getLastOffset() < oldTrackFile.getCurrentSize()
                 && oldTrackFile.getId().equals(FileId.get(oldTrackFile.getPath()))
                 || newTrackFile.size > oldTrackFile.size
                     && oldTrackFile.getId().equals(FileId.get(newTrackFile.getPath())))
@@ -442,8 +442,9 @@ public class SourceFileTracker
             // 文件内容没有变化，保持不变
             newTrackFile.setLastOffset(oldTrackFile.getLastOffset());
         }
-        
+
         // 连续两次采集都丢失，则从snapshot中删除(防止操作系统mv方式滚动日志导致偶现没获取文件然后又获取到的情况)
+        List<TrackedFile> deleteTrackedFile = new ArrayList<>();
         for (TrackedFile currentDeleteFile : analyzer.getCurrentNoCounterparts())
         {
             if (!currentDeleteFile.getIsDeleting())
@@ -453,8 +454,18 @@ public class SourceFileTracker
                 // 添加到newSnapshot中
                 newSnapshot.addSingle(copiedTrackedFile);
             }
+            else
+            {
+                deleteTrackedFile.add(currentDeleteFile);
+                LOGGER.info("Find [Delete] file {}", currentDeleteFile);
+            }
         }
-        
+        // 如果文件删除，则清理元数据
+        if (deleteTrackedFile.size() > 0)
+        {
+            checkpoints.deleteCheckpointByTrackedFileList(deleteTrackedFile);
+        }
+
         this.currentSnapshot = newSnapshot;
         this.pendingFiles = new TrackedFileList(needUpdateFile);
         
@@ -462,12 +473,12 @@ public class SourceFileTracker
         if (currentOpenFile != null)
         {
             if (sameAsCurrentOpenFile == null
-                || sameAsCurrentOpenFile.getLastOffset() == 0 && currentOpenFile.getCurrentOffset() > 0)
+                    || sameAsCurrentOpenFile.getLastOffset() == 0 && currentOpenFile.getLastOffset() > 0)
             {
                 // 当前文件丢失或变小，重置
                 LOGGER.info("Close currentOpenFile [{}] due to [{}]",
-                    currentOpenFile,
-                    sameAsCurrentOpenFile == null ? "DELETE" : "Shrink");
+                        currentOpenFile,
+                        sameAsCurrentOpenFile == null ? "DELETE" : "Shrink");
                 closeCurrentFileIfOpen();
                 currentOpenFile = null;
                 currentOpenFileIndex = -1;

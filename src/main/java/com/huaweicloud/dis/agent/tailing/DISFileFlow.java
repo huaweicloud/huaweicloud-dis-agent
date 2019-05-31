@@ -271,7 +271,16 @@ public class DISFileFlow extends FileFlow<DISRecord>
     @Override
     protected long getDefaultMaxFileCheckingMillis()
     {
-        return DISConstants.DEFAULT_MAX_FILE_CHECKING_MILLIS;
+        if (isFileAppendable())
+        {
+            // 如果文件可以追加，此时表示如果记录不是分隔符结尾，则等待此时间之后认为记录已写完，如果Flow的missLastRecordDelimiter=true，则会上传此记录
+            return DISConstants.DEFAULT_MISS_LAST_RECORD_DELIMITER_CHECKING_MILLIS;
+        }
+        else
+        {
+            // 如果文件不可以追加，则等待文件全部写完之后，再上传
+            return DISConstants.DEFAULT_MAX_FILE_CHECKING_MILLIS;
+        }
     }
     
     public String getMetricLog(Map<String, Object> metrics)

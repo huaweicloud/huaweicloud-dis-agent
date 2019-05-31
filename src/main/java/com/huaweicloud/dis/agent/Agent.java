@@ -1,18 +1,5 @@
 package com.huaweicloud.dis.agent;
 
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Stopwatch;
@@ -28,6 +15,18 @@ import com.huaweicloud.dis.agent.tailing.FileFlow;
 import com.huaweicloud.dis.agent.tailing.FileTailer;
 import com.huaweicloud.dis.agent.tailing.checkpoints.FileCheckpointStore;
 import com.huaweicloud.dis.agent.tailing.checkpoints.SQLiteFileCheckpointStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class Agent extends AbstractIdleService implements IHeartbeatProvider
 {
@@ -40,6 +39,7 @@ public class Agent extends AbstractIdleService implements IHeartbeatProvider
     {
         AgentOptions opts = AgentOptions.parse(args);
         String configFile = opts.getConfigFile();
+        String agentName = opts.getAgentName();
         AgentConfiguration config = tryReadConfigurationFile(opts.getConfigFile());
         
         // Install an unhandled exception hook
@@ -76,13 +76,17 @@ public class Agent extends AbstractIdleService implements IHeartbeatProvider
         
         try
         {
+            if (!agentName.matches("[a-zA-Z0-9-_]+"))
+            {
+                throw new IllegalArgumentException("agent name -n should be match [a-zA-Z0-9-_]+");
+            }
             logger.info("Reading configuration from file: {}", configFile);
             if (config == null)
             {
                 config = readConfigurationFile(opts.getConfigFile());
             }
             // Initialize and start the agent
-            AgentContext agentContext = new AgentContext(config);
+            AgentContext agentContext = new AgentContext(agentName, config);
             if (agentContext.flows().isEmpty())
             {
                 throw new ConfigurationException("There are no flows configured in configuration file.");
@@ -110,7 +114,8 @@ public class Agent extends AbstractIdleService implements IHeartbeatProvider
         catch (Exception e)
         {
             logger.error("Unhandled error.", e);
-            System.err.println("Unhandled error.");
+            System.err.println();
+            System.err.println("Agent has stopped because [" + e.getLocalizedMessage() + "]");
             e.printStackTrace();
             System.exit(1);
         }
@@ -299,7 +304,7 @@ public class Agent extends AbstractIdleService implements IHeartbeatProvider
             e.printStackTrace();
             System.exit(1);
         }
-        logger.info("{}: Startup completed in {} ms.", serviceName(), startupTimer.elapsed(TimeUnit.MILLISECONDS));
+        logger.info("{}({}): Startup completed in {} ms.", serviceName(), agentContext.getAgentName(), startupTimer.elapsed(TimeUnit.MILLISECONDS));
     }
     
     @Override

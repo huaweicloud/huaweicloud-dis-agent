@@ -110,7 +110,13 @@ public abstract class FileFlow<R extends IRecord> extends Configuration
      * 文件是否会追加内容
      */
     public static final String IS_FILE_APPENDABLE = "isFileAppendable";
-    
+
+    /**
+     * 数据结尾处是否缺失分隔符，如数据最后没有分隔符但是又需要上传，请设置此值为true，此时如果没有分隔符，则等待{@link #MAX_FILE_CHECKING_MILLIS}之后上传
+     * 默认值false：有分隔符才做为一条记录上传，如没有则等待写入再上传。
+     */
+    public static final String IS_MISS_LAST_RECORD_DELIMITER = "isMissLastRecordDelimiter";
+
     /**
      * 文件检测最长等待时间
      */
@@ -220,6 +226,9 @@ public abstract class FileFlow<R extends IRecord> extends Configuration
     
     @Getter
     protected final boolean fileAppendable;
+
+    @Getter
+    protected final boolean missLastRecordDelimiter;
     
     @Getter
     protected final long maxFileCheckingMillis;
@@ -331,7 +340,9 @@ public abstract class FileFlow<R extends IRecord> extends Configuration
         deletePolicy = readString(DELETE_POLICY, Constants.DELETE_POLICY_NEVER);
         
         fileAppendable = readBoolean(IS_FILE_APPENDABLE, true);
-        
+
+        missLastRecordDelimiter = readBoolean(IS_MISS_LAST_RECORD_DELIMITER, false);
+
         long maxFileCheckingMillisTemp = readLong(MAX_FILE_CHECKING_MILLIS, getDefaultMaxFileCheckingMillis());
         maxFileCheckingMillis =
             maxFileCheckingMillisTemp < minTimeBetweenFilePollsMillis() ? minTimeBetweenFilePollsMillis()

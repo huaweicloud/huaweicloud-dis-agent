@@ -1,5 +1,14 @@
 package com.huaweicloud.dis.agent.tailing;
 
+import com.google.common.base.Preconditions;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.concurrent.NotThreadSafe;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -10,24 +19,12 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Comparator;
 
-import javax.annotation.concurrent.NotThreadSafe;
-
-import org.apache.commons.codec.digest.DigestUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Preconditions;
-
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
-
 /**
  * A class that encapsulates a snapshot of the state of a file at a point in time, along with an optional channel that
  * can be used to read from the file.
  */
 @NotThreadSafe
-@ToString(exclude = {"channel", "flow", "headerBytes", "isSameAsCurrentOpenFile", "sha256HeaderStr", "lastCheckTime"})
+@ToString(exclude = {"channel", "flow", "headerBytes", "isSameAsCurrentOpenFile", "sha256HeaderStr", "lastCheckTime", "missLastRecordDelimiterTime"})
 public class TrackedFile
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(TrackedFile.class);
@@ -77,7 +74,14 @@ public class TrackedFile
     @Getter
     @Setter
     protected long lastCheckTime;
-    
+
+    /**
+     * 缺失分隔符的时间点，当此值<=0表示数据正常以分隔符结尾；>0表示缺失分隔符
+     */
+    @Getter
+    @Setter
+    protected long missLastRecordDelimiterTime;
+
     public TrackedFile(FileFlow<?> flow, Path path, FileId id, long lastModifiedTime, long size)
         throws IOException
     {
@@ -153,14 +157,23 @@ public class TrackedFile
             oldOpenFile.id.toString());
         channel = oldOpenFile.channel;
     }
-    
+
     public long getCurrentOffset()
-        throws IOException
+            throws IOException
     {
         // return channel == null ? 0 : channel.position();
         if (channel != null)
         {
-            lastOffset = channel.position();
+            long channelCurrentPosition = channel.position();
+            // 如果缺失分隔符，表示没有上传完，不需要更新lastOffset
+            if (missLastRecordDelimiterTime > 0)
+            {
+                return channelCurrentPosition;
+            }
+            else
+            {
+                lastOffset = channelCurrentPosition;
+            }
         }
         return lastOffset;
     }
@@ -198,7 +211,10 @@ public class TrackedFile
         try
         {
             // 保存offset
-            lastOffset = channel.position();
+            if (missLastRecordDelimiterTime <= 0)
+            {
+                lastOffset = channel.position();
+            }
             if (channel.isOpen())
                 channel.close();
         }
