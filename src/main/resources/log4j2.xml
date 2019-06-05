@@ -2,19 +2,20 @@
 <Configuration status="WARN">
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout charset="GBK" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSZ} %X{hostname} [%-5p] (%t) %c %m%n"/>
+            <PatternLayout charset="GBK" pattern="%d{yyyy-MM-dd HH:mm:ss.SSSZ} %X{hostname} [%-5p] (%t) %c{.1} %m%n"/>
         </Console>
 
-        <RollingFile name="RollingFile" fileName="logs/dis-agent.log" filePattern="logs/dis-agent-%d{yyyy-MM-dd}-%i.log">
-            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSSZ} %X{hostname} [%-5p] (%t) %c %m%n"/>
+        <RollingFile name="RollingFile" fileName="logs/${env:DIS_AGENT_NAME:-dis-agent}.log"
+                     filePattern="logs/${env:DIS_AGENT_NAME:-dis-agent}-%d{yyyy-MM-dd}-%i.log">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSSZ} %X{hostname} [%-5p] (%t) %c{.1} %m%n"/>
             <Policies>
                 <TimeBasedTriggeringPolicy/>
                 <SizeBasedTriggeringPolicy size="100MB"/>
             </Policies>
-            <DefaultRolloverStrategy fileIndex="max" max="5">
+            <DefaultRolloverStrategy fileIndex="max" max="10">
                 <Delete basePath="logs/" maxDepth="1">
                     <IfFileName glob="*.log"/>
-                    <IfLastModified age="10d"/>
+                    <IfLastModified age="15d"/>
                 </Delete>
             </DefaultRolloverStrategy>
         </RollingFile>

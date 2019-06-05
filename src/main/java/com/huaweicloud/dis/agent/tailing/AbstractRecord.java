@@ -26,7 +26,7 @@ public abstract class AbstractRecord implements IRecord
     
     protected boolean isEndWithRecordDelimiter = false;
     
-    public AbstractRecord(TrackedFile file, long offset, ByteBuffer data)
+    public AbstractRecord(TrackedFile file, long offset, long totalLength, ByteBuffer data)
     {
         Preconditions.checkArgument(offset >= 0,
             "The offset of a record (%s) must be a non-negative integer (File: %s)",
@@ -41,7 +41,9 @@ public abstract class AbstractRecord implements IRecord
             this.totalLength = 0;
             return;
         }
-        this.totalLength = data.remaining();
+        // 不使用data.remaining()，因为可能由于编码问题导致位移计算不准确(如GBK转为UTF8)
+        // this.totalLength = data.remaining();
+        this.totalLength = totalLength;
         // 如果结尾是分隔符 且 上传不需要保留分隔符，则去掉最后的字符
         if (totalLength > 0 && file.flow.getRecordDelimiter() == data.get(data.limit() - 1))
         {
@@ -66,9 +68,9 @@ public abstract class AbstractRecord implements IRecord
         this.data = ByteBuffer.allocate(0);
     }
     
-    public AbstractRecord(TrackedFile file, long offset, byte[] data)
+    public AbstractRecord(TrackedFile file, long offset, long totalLength, byte[] data)
     {
-        this(file, offset, ByteBuffer.wrap(data));
+        this(file, offset, totalLength, ByteBuffer.wrap(data));
     }
     
     @Override

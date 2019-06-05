@@ -1,25 +1,25 @@
 package com.huaweicloud.dis.agent.tailing.checkpoints;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.sql.*;
-import java.util.*;
-
-import org.apache.commons.codec.digest.DigestUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.huaweicloud.dis.agent.AgentContext;
 import com.huaweicloud.dis.agent.tailing.FileFlow;
 import com.huaweicloud.dis.agent.tailing.FileId;
 import com.huaweicloud.dis.agent.tailing.TrackedFile;
-
 import lombok.Cleanup;
 import lombok.ToString;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.sql.*;
+import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Checkpoint store backed by a SQLite database file. This class is thread-safe.
@@ -28,13 +28,19 @@ import lombok.ToString;
 public class SQLiteFileCheckpointStore implements FileCheckpointStore
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(SQLiteFileCheckpointStore.class);
-    
+
+    static final String DEFAULT_CHECKPOINTS_DIR = "conf" + File.separator;
+
+    static final String DEFAULT_CHECKPOINTS_FILE =  "since.db";
+
     private static final int DEFAULT_DB_CONNECTION_TIMEOUT_SECONDS = 5;
     
     private static final int DEFAULT_DB_QUERY_TIMEOUT_SECONDS = 30;
     
     private final Path dbFile;
-    
+
+    private ReentrantLock lock = new ReentrantLock();
+
     @VisibleForTesting
     final AgentContext agentContext;
     
@@ -48,11 +54,36 @@ public class SQLiteFileCheckpointStore implements FileCheckpointStore
     public SQLiteFileCheckpointStore(AgentContext agentContext)
     {
         this.agentContext = agentContext;
-        this.dbFile = this.agentContext.checkpointFile();
+        Path configCheckPath = agentContext.checkpointFile();
+        if (configCheckPath == null)
+        {
+            // checkpoint file的名称为 agent-name_since.db
+            // 为了兼容老版本since.db，此处判断如果checkpoint file不存在，且使用默认的agent name，且since.db存在，则使用since.db即可。
+            String dbFileStr = DEFAULT_CHECKPOINTS_DIR + this.agentContext.getAgentName() + "_" + DEFAULT_CHECKPOINTS_FILE;
+            if (!Files.exists(Paths.get(dbFileStr)) && AgentContext.DEFAULT_AGENT_NAME.equals(this.agentContext.getAgentName())
+                    && Files.exists(Paths.get(DEFAULT_CHECKPOINTS_DIR + DEFAULT_CHECKPOINTS_FILE)))
+            {
+                // 直接使用conf/since.db文件
+                LOGGER.info("Will use compatible checkpoint file : " + DEFAULT_CHECKPOINTS_DIR + DEFAULT_CHECKPOINTS_FILE);
+                this.dbFile = Paths.get(DEFAULT_CHECKPOINTS_DIR + DEFAULT_CHECKPOINTS_FILE);
+            }
+            else
+            {
+                // 根据NAME来创建since.db，用于多进程区分
+                LOGGER.info("Will use default checkpoint file : {}", dbFileStr);
+                this.dbFile = Paths.get(dbFileStr);
+            }
+        }
+        else
+        {
+            // 使用用户指定的文件
+            LOGGER.info("Will use custom checkpoint file : {}", configCheckPath.toString());
+            this.dbFile = configCheckPath;
+        }
         this.dbQueryTimeoutSeconds =
-            this.agentContext.readInteger("checkpoints.queryTimeoutSeconds", DEFAULT_DB_QUERY_TIMEOUT_SECONDS);
+                this.agentContext.readInteger("checkpoints.queryTimeoutSeconds", DEFAULT_DB_QUERY_TIMEOUT_SECONDS);
         this.dbConnectionTimeoutSeconds = this.agentContext.readInteger("checkpoints.connectionTimeoutSeconds",
-            DEFAULT_DB_CONNECTION_TIMEOUT_SECONDS);
+                DEFAULT_DB_CONNECTION_TIMEOUT_SECONDS);
         connect();
         // Every time we connect, try cleaning up the database
         deleteOldData();
@@ -223,8 +254,7 @@ public class SQLiteFileCheckpointStore implements FileCheckpointStore
         }
         catch (SQLException e)
         {
-            LOGGER
-                .error("Failed to create the checkpoint {}@{} in database {}", cp.getFile(), cp.getOffset(), dbFile, e);
+            LOGGER.error("Failed to create the checkpoint {}@{} in database {}", cp.getFile(), cp.getOffset(), dbFile, e);
             try
             {
                 connection.rollback();
@@ -245,6 +275,7 @@ public class SQLiteFileCheckpointStore implements FileCheckpointStore
             return false;
         try
         {
+            lock.lock();
             @Cleanup
             PreparedStatement update = connection
                 .prepareStatement("update FILE_CHECKPOINTS " + "set path=?, offset=(select max(?, offset) from "
@@ -279,12 +310,18 @@ public class SQLiteFileCheckpointStore implements FileCheckpointStore
                 // 更新失败，则插入记录
                 if (updateAffects[i] == 0)
                 {
+                    FileCheckpoint cp = fileCheckpoints.get(i);
+
+                    // 文件不存在，忽略
+                    if (!Files.exists(cp.getFile().getPath()))
+                    {
+                        continue;
+                    }
                     if (insert == null)
                     {
                         insert = connection.prepareStatement("insert or ignore into FILE_CHECKPOINTS "
                             + "values(?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%f', 'now'))");
                     }
-                    FileCheckpoint cp = fileCheckpoints.get(i);
                     failedFileCheckpoint.add(cp);
                     insert.setString(1, cp.getFile().getFlow().getId());
                     insert.setString(2, cp.getFile().getPath().toAbsolutePath().toString());
@@ -325,9 +362,7 @@ public class SQLiteFileCheckpointStore implements FileCheckpointStore
                         throw new RuntimeException("Race condition detected when setting checkpoint for file: "
                             + failedFileCheckpoint.get(i).getFile().getPath());
                     }
-                    
                 }
-                
             }
             
             connection.commit();
@@ -347,6 +382,10 @@ public class SQLiteFileCheckpointStore implements FileCheckpointStore
                 close();
             }
             return false;
+        }
+        finally
+        {
+            lock.unlock();
         }
     }
     
@@ -562,37 +601,51 @@ public class SQLiteFileCheckpointStore implements FileCheckpointStore
     }
     
     @Override
-    public void deleteCheckpointByTrackedFile(TrackedFile trackedFile)
+    public void deleteCheckpointByTrackedFileList(List<TrackedFile> trackedFileList)
     {
-        Preconditions.checkNotNull(trackedFile);
+        if (trackedFileList == null || trackedFileList.size() == 0)
+        {
+            return;
+        }
         if (!ensureConnected())
         {
             return;
         }
         try
         {
+            lock.lock();
             @Cleanup
             PreparedStatement statement = connection
-                .prepareStatement("delete from FILE_CHECKPOINTS where rowid in (select rowid from FILE_CHECKPOINTS "
-                    + "where flow=? and fileId=? order by lastModifiedTime asc limit 1)\n");
-            statement.setString(1, trackedFile.getFlow().getId());
-            statement.setString(1, trackedFile.getId().toString());
-            
-            int result = statement.executeUpdate();
-            if (result == 0)
+                    .prepareStatement("delete from FILE_CHECKPOINTS where rowid in (select rowid from FILE_CHECKPOINTS "
+                            + "where flow=? and fileId=? order by lastModifiedTime asc limit 1)\n");
+
+            for (TrackedFile trackedFile : trackedFileList)
             {
-                LOGGER.error("Delete flow {}, fileId {} failed...",
-                    trackedFile.getFlow().getId(),
-                    trackedFile.getId().toString());
+                statement.setString(1, trackedFile.getFlow().getId());
+                statement.setString(2, trackedFile.getId().toString());
+                statement.addBatch();
+                LOGGER.debug("delete checkpoint info {}.", trackedFile);
             }
+            statement.executeBatch();
+            connection.commit();
+            LOGGER.info("Delete {} checkpoints", trackedFileList.size());
         }
         catch (SQLException e)
         {
-            LOGGER.error("Failed when delete fileId {} for flow {}",
-                trackedFile.getId().toString(),
-                trackedFile.getFlow().getId(),
-                e);
-            throw new RuntimeException("Failed to configure the checkpoint database.", e);
+            try
+            {
+                connection.rollback();
+            }
+            catch (SQLException e2)
+            {
+                LOGGER.error("Failed to rollback cleanup transaction.", e2);
+                LOGGER.info("Reinitializing connection to database {}", dbFile);
+                close();
+            }
+        }
+        finally
+        {
+            lock.unlock();
         }
     }
 }

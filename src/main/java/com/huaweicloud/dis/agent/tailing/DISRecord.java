@@ -15,16 +15,16 @@ public class DISRecord extends AbstractRecord
 {
     protected final String partitionKey;
     
-    public DISRecord(TrackedFile file, long offset, ByteBuffer data)
+    public DISRecord(TrackedFile file, long offset, int length, ByteBuffer data)
     {
-        super(file, offset, data);
+        super(file, offset, length, data);
         Preconditions.checkNotNull(file);
         partitionKey = generatePartitionKey(((DISFileFlow)file.getFlow()).getPartitionKeyOptionList());
     }
     
-    public DISRecord(TrackedFile file, long offset, byte[] data)
+    public DISRecord(TrackedFile file, long offset, int length, byte[] data)
     {
-        super(file, offset, data);
+        super(file, offset, length, data);
         Preconditions.checkNotNull(file);
         partitionKey = generatePartitionKey(((DISFileFlow)file.getFlow()).getPartitionKeyOptionList());
     }

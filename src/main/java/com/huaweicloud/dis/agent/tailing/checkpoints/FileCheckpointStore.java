@@ -45,7 +45,7 @@ public interface FileCheckpointStore
     
     public List<TrackedFile> getAllCheckpointForFlow(FileFlow<?> flow);
     
-    public void deleteCheckpointByTrackedFile(TrackedFile trackedFile);
+    public void deleteCheckpointByTrackedFileList(List<TrackedFile> trackedFileList);
     
     public long getOffsetForFileID(FileFlow<?> flow, String fileID);
 }

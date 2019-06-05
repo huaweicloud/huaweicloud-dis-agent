@@ -34,8 +34,7 @@ public class AgentContext extends AgentConfiguration implements IMetricsContext
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(AgentContext.class);
     
-    @VisibleForTesting
-    static final String DEFAULT_USER_AGENT = "dis-agent";
+    public static final String DEFAULT_AGENT_NAME = "dis-agent";
     
     @VisibleForTesting
     public final FileFlowFactory fileFlowFactory;
@@ -53,14 +52,17 @@ public class AgentContext extends AgentConfiguration implements IMetricsContext
     
     @Getter
     private final DISCredentials credentials;
-    
+
+    @Getter
+    private final String agentName;
+
     /**
      * @param configuration
      * @throws ConfigurationException
      */
-    public AgentContext(Configuration configuration)
+    public AgentContext(String agentName, Configuration configuration)
     {
-        this(configuration, new FileFlowFactory());
+        this(agentName, configuration, new FileFlowFactory());
     }
     
     /**
@@ -68,10 +70,11 @@ public class AgentContext extends AgentConfiguration implements IMetricsContext
      * @param fileFlowFactory
      * @throws ConfigurationException
      */
-    public AgentContext(Configuration configuration, FileFlowFactory fileFlowFactory)
+    public AgentContext(String agentName, Configuration configuration, FileFlowFactory fileFlowFactory)
     {
         super(configuration);
-        credentials = initCredentials();
+        this.agentName = agentName;
+        this.credentials = initCredentials();
         this.fileFlowFactory = fileFlowFactory;
         if (containsKey("flows"))
         {

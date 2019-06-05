@@ -1,5 +1,14 @@
 package com.huaweicloud.dis.agent.tailing;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.huaweicloud.dis.agent.ByteBuffers;
+import com.huaweicloud.dis.agent.processing.exceptions.DataConversionException;
+import com.huaweicloud.dis.agent.processing.interfaces.IDataConverter;
+import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -8,22 +17,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.huaweicloud.dis.agent.ByteBuffers;
-import com.huaweicloud.dis.agent.processing.exceptions.DataConversionException;
-import com.huaweicloud.dis.agent.processing.interfaces.IDataConverter;
-
-import lombok.Getter;
-
 /**
  * The base record parser implementation which implements all the mechanics of reading a stream of records from an IO
  * channel. Details about the specific shape and format of a record are delegated to the specific {@link ISplitter} for
  * the {@link FileFlow}, and the logic of constructing a new new record is encapsulated in the
- * {@link #buildRecord(TrackedFile, ByteBuffer, long)} method which must be implemented by subclasses.
+ * {@link #buildRecord(TrackedFile, ByteBuffer, long, int)} method which must be implemented by subclasses.
  *
  * @see IParser
  */
@@ -148,11 +146,11 @@ public abstract class AbstractParser<R extends IRecord> implements IParser<R>
     {
         if (currentBuffer != null || currentFile != null)
         {
+            discardCurrentBuffer(reason);
             currentFile = null;
             currentFileChannel = null;
             currentFileChannelOffset = -1;
             headerLinesToSkip = 0;
-            discardCurrentBuffer(reason);
             return true;
         }
         else
@@ -318,6 +316,12 @@ public abstract class AbstractParser<R extends IRecord> implements IParser<R>
             return null;
         int currentRecordOffset = currentBuffer.position();
         int nextRecordOffset = recordSplitter.locateNextRecord(currentBuffer);
+        if (currentBufferFile.getFlow().isMissLastRecordDelimiter() && (currentRecordOffset + 1) == nextRecordOffset && currentBuffer.hasRemaining())
+        {
+            // 忽略第一个换行符，防止发送空数据
+            currentRecordOffset++;
+            nextRecordOffset = recordSplitter.locateNextRecord(currentBuffer);
+        }
         if (nextRecordOffset != -1)
         {
             return buildRecord(currentRecordOffset, nextRecordOffset - currentRecordOffset);
@@ -362,12 +366,31 @@ public abstract class AbstractParser<R extends IRecord> implements IParser<R>
             }
             else
             {
-                // 如果存在有数据，但是没有换行符\n时，认为是一条记录
-                if (!flow.isFileAppendable() && currentBufferExhausted
-                    && currentBuffer.position() > currentRecordOffset)
+                // 已经解析到文件结尾但是还有数据没有生成Record，则缺失最后一个分隔符
+                if (currentBufferExhausted && currentBuffer.position() > currentRecordOffset)
                 {
-                    return buildRecord(currentRecordOffset, currentBuffer.limit() - currentRecordOffset);
+                    if (!flow.isFileAppendable())
+                    {
+                        // 文件上传模式，即使没有分隔符，最后一行也需上传
+                        return buildRecord(currentRecordOffset, currentBuffer.limit() - currentRecordOffset);
+                    }
+
+                    if (flow.isMissLastRecordDelimiter())
+                    {
+                        // 如果当前文件缺失分隔符，且等待时间超过指定值，则将内容解析
+                        if (currentBufferFile.getMissLastRecordDelimiterTime() > 0
+                                && System.currentTimeMillis() - currentBufferFile.getMissLastRecordDelimiterTime() >= flow.getMaxFileCheckingMillis())
+                        {
+                            return buildRecord(currentRecordOffset, currentBuffer.limit() - currentRecordOffset);
+                        }
+                        else if (currentBufferFile.getMissLastRecordDelimiterTime() <= 0)
+                        {
+                            // 设置缺失分隔符的时间点
+                            currentBufferFile.setMissLastRecordDelimiterTime(System.currentTimeMillis());
+                        }
+                    }
                 }
+                // 设置buffer的位置为上一次生成Record的位置
                 currentBuffer.position(currentRecordOffset);
                 currentBufferExhausted = true;
                 return null;
@@ -457,7 +480,8 @@ public abstract class AbstractParser<R extends IRecord> implements IParser<R>
     {
         if (currentBuffer != null)
         {
-            if (currentBuffer.remaining() > 0)
+            // 在缺失分隔符的情况下，丢弃buffer中的数据是正常情况不用提示
+            if (currentBuffer.remaining() > 0 && currentBufferFile.getMissLastRecordDelimiterTime() <= 0)
             {
                 onDiscardedData(currentBuffer.position(), currentBuffer.remaining(), reason);
                 if (logger.isDebugEnabled())
@@ -626,17 +650,22 @@ public abstract class AbstractParser<R extends IRecord> implements IParser<R>
         ByteBuffer data = ByteBuffers.getPartialView(currentBuffer, offset, length);
         ++recordsFromCurrentBuffer;
         Preconditions.checkNotNull(currentBufferFile);
-        
+        long channelOffsetStart = toChannelOffset(offset);
+        // 重置缺失分隔符的时间点
+        currentBufferFile.setMissLastRecordDelimiterTime(-1);
+        // 设置文件已经解析到的位置
+        currentBufferFile.setLastOffset(channelOffsetStart + length);
+
         R record = null;
         try
         {
-            record = buildRecord(currentBufferFile, convertData(data), toChannelOffset(offset));
+            record = buildRecord(currentBufferFile, convertData(data), channelOffsetStart, length);
         }
         catch (DataConversionException e)
         {
             totalDataProcessingErrors.incrementAndGet();
             logger.warn("Cannot process input data: " + e.getMessage() + ", falling back to raw data.");
-            record = buildRecord(currentBufferFile, data, toChannelOffset(offset));
+            record = buildRecord(currentBufferFile, data, channelOffsetStart, length);
         }
         finally
         {
@@ -686,7 +715,7 @@ public abstract class AbstractParser<R extends IRecord> implements IParser<R>
             reason);
     }
     
-    protected abstract R buildRecord(TrackedFile recordFile, ByteBuffer data, long offset);
+    protected abstract R buildRecord(TrackedFile recordFile, ByteBuffer data, long offset, int length);
     
     protected abstract int getMaxRecordSize();
     
