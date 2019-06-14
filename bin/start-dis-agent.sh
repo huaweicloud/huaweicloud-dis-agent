@@ -97,7 +97,7 @@ CLASSPATH="$LIB_DIR":$(find "$LIB_DIR" -type f -name \*.jar | paste -s -d : -):"
 #OOME_ARGS="-XX:OnOutOfMemoryError=\"/bin/kill -9 %p\""
 #"$OOME_ARGS"
 JVM_ARGS="-Xms${JAVA_START_HEAP} -Xmx${JAVA_MAX_HEAP} -Djava.io.tmpdir=${LIB_DIR} -Dlog4j.configurationFile=conf/log4j2.xml $JVM_ARGS"
-
+mkdir -p "${pdir}/logs/"
 which /bin/tee > /dev/null 2>&1
 if [ $? -eq 0 ]; then
 	exec $JAVACMD $JVM_ARGS $JVM_DBG_OPTS -cp "$CLASSPATH" $MAIN_CLASS ${MAIN_CLASS_ARGS} 2>&1 | /bin/tee -a "${pdir}/logs/${DIS_AGENT_NAME}.log" &

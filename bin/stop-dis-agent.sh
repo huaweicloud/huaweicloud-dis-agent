@@ -14,6 +14,9 @@ MAIN_CLASS="com.huaweicloud.dis.agent.Agent"
 stop_pid=""
 process_num=`ps -ef | grep "${MAIN_CLASS}" | grep -v grep | wc -l`
 if [ ${process_num} -eq 0 ]; then
+    if [ -e "${pdir}/agent.pid" ]; then
+        true > "${pdir}/agent.pid"
+    fi
     /bin/echo "Cloud not find DIS Agent process."
     exit 1
 elif [ ${process_num} -gt 1 ]; then

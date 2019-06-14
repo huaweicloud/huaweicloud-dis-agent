@@ -330,7 +330,7 @@ public abstract class AbstractParser<R extends IRecord> implements IParser<R>
         {
             // Either there isn't a complete record in the buffer yet,
             // or the record size exceeds the buffer size. Find out which.
-            if (currentBuffer.position() == 0 && currentBuffer.limit() == currentBuffer.capacity())
+            if (currentRecordOffset == 0 && currentBuffer.limit() == currentBuffer.capacity())
             {
                 // Rewind to where we started...
                 currentBuffer.position(currentRecordOffset);
