@@ -1,10 +1,20 @@
 #!/bin/bash -l
 
-is_bash=`ps -ef | grep $0 | grep -v grep | grep bash | wc -l`
+is_bash=`ps -p $$ | grep bash | wc -l`
 if [ ${is_bash} -eq 0 ]; then
-	echo "Please use bash to stop Agent."
+	echo "Please use bash to stop Agent, e.g. bash bin/`basename $0`"
 	exit 1
 fi
+
+while getopts 'n:' opt; do
+    case $opt in
+        n)
+            agent_name="$OPTARG";;
+        ?)
+            echo -e "Usage: `basename $0` -n agent_name"
+            exit
+    esac
+done
 
 pdir=$(cd `dirname $0`;cd ../;pwd)
 cd "${pdir}"
@@ -12,18 +22,20 @@ cd "${pdir}"
 MAIN_CLASS="com.huaweicloud.dis.agent.Agent"
 
 stop_pid=""
-process_num=`ps -ef | grep "${MAIN_CLASS}" | grep -v grep | wc -l`
+if [ -z "${agent_name}" ]; then
+    agent_name=""
+else
+    agent_name="\-n ${agent_name}\$"
+fi
+
+process_num=`ps -ef | grep "${MAIN_CLASS}" | grep "${agent_name}" | grep -v grep | wc -l`
 if [ ${process_num} -eq 0 ]; then
-    if [ -e "${pdir}/agent.pid" ]; then
-        true > "${pdir}/agent.pid"
-    fi
-    /bin/echo "Cloud not find DIS Agent process."
-    exit 1
+    pid=""
 elif [ ${process_num} -gt 1 ]; then
     /bin/echo "Find multi DIS Agent process."
     num=0
     /bin/echo -e "Num\tPID \tName\t\tProcess"
-    for i in `ps -ef | grep "${MAIN_CLASS}" | grep -v grep | awk '{print $2}'`
+    for i in `ps -ef | grep "${MAIN_CLASS}" | grep "${agent_name}" | grep -v grep | awk '{print $2}'`
     do
         pid_arr[$num]=${i}
         /bin/echo -e "${num}\t${i}\t`ps -eo pid,cmd| grep ${i} | grep -v grep | awk '{print $NF"\t"$(NF-4), $(NF-3), $(NF-2), $(NF-1), $NF}'`"
@@ -38,12 +50,12 @@ elif [ ${process_num} -gt 1 ]; then
     fi
     pid=${pid_arr[$CONFIRM_NUM]}
 else
-    pid=`ps -ef | grep "${MAIN_CLASS}" | grep -v grep | awk '{print $2}'`
+    pid=`ps -ef | grep "${MAIN_CLASS}" | grep "${agent_name}" | grep -v grep | awk '{print $2}'`
 fi
 
 if [ -z "${pid}" ]; then
-    /bin/echo "Failed to stop process: cloud not get the pid."
-    exit
+    /bin/echo "Failed to stop DIS Agent: cloud not find process."
+    exit 1
 fi
 
 kill ${pid}
@@ -64,13 +76,15 @@ do
         fi
     else
         if [ -e "${pdir}/agent.pid" ]; then
-            sed -i "/${pid}/d" "${pdir}/agent.pid"
+            sed -i "/^${pid}$/d" "${pdir}/agent.pid"
         fi
 
-        if [ ${process_num} -eq 1 ]; then
+        if [ `ps -ef | grep "${MAIN_CLASS}" | grep -v grep | wc -l` -eq 0 ]; then
             # clean sqlite so
-            find "${pdir}/lib/" -name "sqlite-*sqlitejdbc*" | xargs -n1 rm -f
+            rm -f "${pdir}/lib/"sqlite*-libsqlitejdbc.so
+            true > "${pdir}/agent.pid"
         fi
+
         /bin/echo " Successfully."
         exit 0
     fi

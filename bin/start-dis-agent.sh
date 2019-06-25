@@ -1,8 +1,8 @@
 #!/bin/bash -l
 
-is_bash=`ps -ef | grep $0 | grep -v grep | grep bash | wc -l`
+is_bash=`ps -p $$ | grep bash | wc -l`
 if [ ${is_bash} -eq 0 ]; then
-	echo "Please use bash to start Agent."
+	echo "Please use bash to start Agent, e.g. bash bin/`basename $0`"
 	exit 1
 fi
 
