@@ -1,15 +1,5 @@
 package com.huaweicloud.dis.agent.tailing;
 
-import java.io.IOException;
-import java.nio.file.AccessDeniedException;
-import java.util.Collections;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
@@ -19,8 +9,16 @@ import com.huaweicloud.dis.agent.AgentContext;
 import com.huaweicloud.dis.agent.IHeartbeatProvider;
 import com.huaweicloud.dis.agent.metrics.Metrics;
 import com.huaweicloud.dis.agent.tailing.checkpoints.FileCheckpointStore;
-
 import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.file.AccessDeniedException;
+import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Component responsible for tailing a single file, parsing into records and passing buffers of records downstream to
@@ -257,12 +255,14 @@ public class FileTailer<R extends IRecord> extends AbstractExecutionThreadServic
             TrackedFile currentFile = parser.getCurrentFile();
             if (currentFile != null && currentFile.getChannel() != null && currentFile.getChannel().isOpen())
             {
-                // TODO currentFile或channel可能为空
                 result += currentFile.getChannel().size() - currentFile.getChannel().position();
             }
             for (TrackedFile f : fileTracker.getPendingFiles())
             {
-                result += f.getSize();
+                if (currentFile != null && !currentFile.getId().getId().equals(f.getId().getId()))
+                {
+                    result += (f.getSize() - f.getLastOffset());
+                }
             }
             return result;
         }

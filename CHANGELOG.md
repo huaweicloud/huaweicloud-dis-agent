@@ -8,3 +8,8 @@
   * 不同Agent进程根据唯一名称写不同的日志文件与Checkpoint文件
   * 监控文件删除后清理Checkpoint中对应的记录
  
+# 1.2.0
+
+- 特性
+  * 支持通过-n参数停止指定名称的Agent
+  * 使用huaweicloud-sdk-dis-java 1.3.4，支持数据上传压缩

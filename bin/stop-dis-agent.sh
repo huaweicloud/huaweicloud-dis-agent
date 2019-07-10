@@ -34,11 +34,25 @@ if [ ${process_num} -eq 0 ]; then
 elif [ ${process_num} -gt 1 ]; then
     /bin/echo "Find multi DIS Agent process."
     num=0
-    /bin/echo -e "Num\tPID \tName\t\tProcess"
+
+    which printf > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        support_printf=true
+        printf "%-5s %-10s %-20s %s\n" Num PID Name Process
+    else
+        support_printf=false
+        /bin/echo -e "Num\tPID \tName\t\tProcess"
+    fi
     for i in `ps -ef | grep "${MAIN_CLASS}" | grep "${agent_name}" | grep -v grep | awk '{print $2}'`
     do
         pid_arr[$num]=${i}
-        /bin/echo -e "${num}\t${i}\t`ps -eo pid,cmd| grep ${i} | grep -v grep | awk '{print $NF"\t"$(NF-4), $(NF-3), $(NF-2), $(NF-1), $NF}'`"
+        if [ ${support_printf} ];then
+            name=`ps -eo pid,cmd| grep ${i} | grep -v grep | awk '{print $NF}'`
+            process=`ps -eo pid,cmd| grep ${i} | grep -v grep | awk '{print $(NF-4), $(NF-3), $(NF-2), $(NF-1), $NF}'`
+            printf "%-5s %-10s %-20s %s\n" "${num}" "${i}" "${name}" "${process}"
+        else
+            /bin/echo -e "${num}\t${i}\t`ps -eo pid,cmd| grep ${i} | grep -v grep | awk '{print $NF"\t"$(NF-4), $(NF-3), $(NF-2), $(NF-1), $NF}'`"
+        fi
         num=`expr ${num} + 1`;
     done
 

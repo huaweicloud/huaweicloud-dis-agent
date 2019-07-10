@@ -126,24 +126,7 @@ public class SmallFileSender extends AbstractSender<SmallFileRecord>
                         data.file().getId().toString(),
                         getDestination());
                     metrics.addCount(RECORDS_ATTEMPTED_METRIC, 1);
-                    PutFilesResult putFilesResult =
-                        agentContext.getDISClientAsync().putFilesAsync(putFilesRequest).get();
-                    if (putFilesResult != null && putFilesResult.isSuccessful())
-                    {
-                        sentRecords.add(i);
-                        totalBytesSent += data.file().getSize();
-                    }
-                    else
-                    {
-                        errorMsg = "upload to obs may be cancelled";
-                    }
-                }
-                catch (DISClientException | InterruptedException | ExecutionException e)
-                {
-                    metrics.addCount(SERVICE_ERRORS_METRIC, 1);
-                    totalPutFilesServiceErrors.incrementAndGet();
-                    errorMsg = e.getMessage();
-                    throw new DISClientException(e.getMessage(), e);
+                    // remove small file upload at 07/2019
                 }
                 catch (Exception e)
                 {

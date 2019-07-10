@@ -18,10 +18,6 @@ public class FileFlowFactory
         {
             return getDISFileflow(context, config);
         }
-        else if (config.containsKey(SmallFileConstants.DESTINATION_KEY))
-        {
-            return getSmallFileflow(context, config);
-        }
         else if (config.containsKey(OBSConstants.DESTINATION_KEY))
         {
             return getOBSFileflow(context, config);
