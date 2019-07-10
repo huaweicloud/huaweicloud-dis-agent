@@ -8,15 +8,15 @@ Getting Started
 
 To get started using dis agent, you will need those things:
 
-1. JRE 1.7 +
+1. JRE 1.8 +
 
 ### Install DIS Agent
 1. Using Xshell, log in to the Linux server on which the DIS Agent will be installed.
-2. Upload the DIS Agent package dis-agent-1.0.0.zip to any directory, and use unzip to decompress
+2. Upload the DIS Agent package dis-agent-1.2.0.zip to any directory, and use unzip to decompress
 
 ```
-unzip dis-agent-1.0.0.zip
-cd dis-agent-1.0.0
+unzip dis-agent-1.2.0.zip
+cd dis-agent-1.2.0
 ```
 
 ### Configuring DIS Agent
