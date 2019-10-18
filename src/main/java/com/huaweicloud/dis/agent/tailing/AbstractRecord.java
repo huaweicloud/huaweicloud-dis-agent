@@ -8,6 +8,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.huaweicloud.dis.agent.ByteBuffers;
+import org.apache.commons.lang3.SystemUtils;
 
 /**
  * Base implementation of an {@link IRecord} interface.
@@ -50,7 +51,17 @@ public abstract class AbstractRecord implements IRecord
             isEndWithRecordDelimiter = true;
             if (!file.flow.isRemainRecordDelimiter())
             {
-                data.limit(data.limit() - 1);
+                // Windows下需要去除\r\n，Linux下只需去除\n
+                if (SystemUtils.IS_OS_WINDOWS) {
+                    byte[] tmpArray = new byte[data.array().length - 2];
+                    data.get(tmpArray, 0, tmpArray.length);
+                    this.data = ByteBuffer.wrap(tmpArray);
+                } else {
+                    byte[] tmpArray = new byte[data.array().length - 1];
+                    data.get(tmpArray, 0, tmpArray.length);
+                    this.data = ByteBuffer.wrap(tmpArray);
+                }
+                return ;
             }
         }
         this.data = data;
