@@ -172,7 +172,7 @@ public class AgentContext extends AgentConfiguration implements IMetricsContext
         String sk = tryGetDecryptValue(DISConfig.PROPERTY_SK, false);
         String dataPassword = tryGetDecryptValue(DISConfig.PROPERTY_DATA_PASSWORD, false);
 
-        return new DISCredentials(ak, sk, (String) configMap.get(DISConfig.PROPERTY_SECURITY_TOKEN), dataPassword);
+        return new DISCredentials(ak, sk, (String) configMap.get(DISConfig.PROPERTY_SECURITY_TOKEN), dataPassword, null, null);
     }
     
     protected String tryGetDecryptValue(String key, boolean ignoreException)
