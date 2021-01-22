@@ -121,6 +121,16 @@ public abstract class FileFlow<R extends IRecord> extends Configuration
      * 文件检测最长等待时间
      */
     private static final String MAX_FILE_CHECKING_MILLIS = "maxFileCheckingMillis";
+
+    /**
+     * 是否忽略长时间没有更新的文件，需要配合参数 {@link #IGNORE_NOT_UPDATED_FILE_SECONDS} 使用
+     */
+    private static final String IGNORE_NOT_UPDATED_FILE_ENABLED = "ignoreNotUpdatedFileEnabled";
+
+    /**
+     * 文件多长时间没有更新时，忽略该文件，当参数 {@link #IGNORE_NOT_UPDATED_FILE_ENABLED} 为 true 时生效
+     */
+    private static final String IGNORE_NOT_UPDATED_FILE_SECONDS = "ignoreNotUpdatedFileSeconds";
     
     /**
      * 递归目录选项开关
@@ -232,6 +242,12 @@ public abstract class FileFlow<R extends IRecord> extends Configuration
     
     @Getter
     protected final long maxFileCheckingMillis;
+
+    @Getter
+    protected final boolean ignoreNotUpdatedFileEnabled;
+
+    @Getter
+    protected final long ignoreNotUpdatedFileSeconds;
     
     @Getter
     protected final boolean directoryRecursionEnabled;
@@ -347,6 +363,10 @@ public abstract class FileFlow<R extends IRecord> extends Configuration
         maxFileCheckingMillis =
             maxFileCheckingMillisTemp < minTimeBetweenFilePollsMillis() ? minTimeBetweenFilePollsMillis()
                 : maxFileCheckingMillisTemp;
+
+        ignoreNotUpdatedFileEnabled = readBoolean(IGNORE_NOT_UPDATED_FILE_ENABLED, false);
+
+        ignoreNotUpdatedFileSeconds = readLong(IGNORE_NOT_UPDATED_FILE_SECONDS, -1L);
         
         directoryRecursionEnabled = readBoolean(DIRECTORY_RECURSION_ENABLED, false);
         

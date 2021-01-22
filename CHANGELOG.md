@@ -18,3 +18,8 @@
 
 - BUG
   * 修复Protobuf格式上传时无法忽略行尾\n的问题
+
+# 1.2.2
+
+- 特性
+  * 支持通过`ignoreNotUpdatedFileEnabled`和`ignoreNotUpdatedFileSeconds`参数配置忽略长时间不更新的文件

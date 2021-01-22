@@ -10,7 +10,7 @@ public class DISConstants extends Constants
     
     public static final int PER_BUFFER_OVERHEAD_BYTES = 0;
     
-    public static final int MAX_PUT_RECORDS_SIZE_RECORDS = 5000;
+    public static final int MAX_PUT_RECORDS_SIZE_RECORDS = 10000;
     
     public static final int DEFAULT_PUT_RECORDS_SIZE_RECORDS = 500;
     

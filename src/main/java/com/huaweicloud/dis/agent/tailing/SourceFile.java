@@ -126,11 +126,18 @@ public class SourceFile
         {
             this.files = files;
         }
-        
+
         @Override
-        public FileVisitResult visitFile(Path p, BasicFileAttributes attrs)
-        {
-            addTrackedFile(p, files);
+        public FileVisitResult visitFile(Path p, BasicFileAttributes attrs) {
+            if (flow.ignoreNotUpdatedFileEnabled && flow.ignoreNotUpdatedFileSeconds > 0) {
+                // 忽略长时间没有更新的文件
+                if (System.currentTimeMillis() - attrs.lastModifiedTime().toMillis()
+                    < flow.ignoreNotUpdatedFileSeconds * 1000) {
+                    addTrackedFile(p, files);
+                }
+            } else {
+                addTrackedFile(p, files);
+            }
             return FileVisitResult.CONTINUE;
         }
     }
