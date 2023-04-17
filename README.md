@@ -47,11 +47,11 @@ Agent configuration Example
 # cloud region id
 region: cn-north-1
 # you ak (get from 'My Credential')
-ak: LPEGNKTEDROMCE22H97Y
+ak: YOU_AK
 # you sk (get from 'My Credential')
-sk: qJXUUrj8hK0dsK1HWE4KmcImMirQEvypwd8qhUNd
+sk: YOU_SK
 # you project id (get from 'My Credential')
-projectId: 8c5be0a9ef014100880db32c149b610c
+projectId: YOU_PROJECTID
 # the dis endpoint
 endpoint: https://dis.cn-north-1.myhuaweicloud.com
 # config each flow to monitor file.
