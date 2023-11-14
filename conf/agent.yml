@@ -1,6 +1,7 @@
 ---
 # cloud region id
 region: cn-north-1
+# The plaintext storage of the AK and SK used for authentication has great security risks
 # you ak (get from 'My Credential')
 ak: YOU_AK
 # you sk (get from 'My Credential')
