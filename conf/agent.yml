@@ -1,7 +1,8 @@
 ---
 # cloud region id
 region: cn-north-1
-# The plaintext storage of the AK and SK used for authentication has great security risks
+## The plaintext storage of the AK and SK used for authentication has great security risks
+## You are advised to use the /bin/dis-encrypt.sh script to encrypt the AK and SK before storing them
 # you ak (get from 'My Credential')
 ak: YOU_AK
 # you sk (get from 'My Credential')
